@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة جمع النجوم</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
+            background-color: #87CEEB;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #87CEEB;
+            touch-action: none;
+        }
+        
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">النقاط: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="startScreen">
+        <h1>لعبة جمع النجوم</h1>
+        <p>حرك السلة باستخدام أصابعك لجمع النجوم المتساقطة!</p>
+        <button id="startButton">ابدأ اللعبة</button>
+    </div>
+
+    <script>
+        // تهيئة اللعبة
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const scoreElement = document.getElementById('score');
+        
+        // ضبط حجم الكانفاس ليتناسب مع الشاشة
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // متغيرات اللعبة
+        let score = 0;
+        let gameRunning = false;
+        let basket = {
+            x: canvas.width / 2 - 50,
+            y: canvas.height - 60,
+            width: 100,
+            height: 30,
+            speed: 10
+        };
+        
+        let stars = [];
+        let lastStarTime = 0;
+        let starInterval = 1000; // نجم كل ثانية
+        
+        // أحداث اللمس
+        let touchX = 0;
+        
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            touchX = e.touches[0].clientX;
+        }, false);
+        
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            if (!gameRunning) return;
+            
+            const newTouchX = e.touches[0].clientX;
+            const deltaX = newTouchX - touchX;
+            
+            basket.x += deltaX;
+            
+            // التأكد من عدم خروج السلة عن الشاشة
+            if (basket.x < 0) basket.x = 0;
+            if (basket.x > canvas.width - basket.width) {
+                basket.x = canvas.width - basket.width;
+            }
+            
+            touchX = newTouchX;
+        }, false);
+        
+        // بدء اللعبة
+        startButton.addEventListener('click', function() {
+            startScreen.style.display = 'none';
+            gameRunning = true;
+            score = 0;
+            stars = [];
+            scoreElement.textContent = 'النقاط: ' + score;
+            requestAnimationFrame(gameLoop);
+        });
+        
+        // إنشاء نجم جديد
+        function createStar() {
+            const now = Date.now();
+            if (now - lastStarTime > starInterval) {
+                stars.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: -30,
+                    width: 30,
+                    height: 30,
+                    speed: 2 + Math.random() * 3
+                });
+                lastStarTime = now;
+                
+                // زيادة صعوبة اللعبة مع الوقت
+                if (starInterval > 300) {
+                    starInterval -= 10;
+                }
+            }
+        }
+        
+        // تحديث مواقع النجوم
+        function updateStars() {
+            for (let i = stars.length - 1; i >= 0; i--) {
+                stars[i].y += stars[i].speed;
+                
+                // الكشف عن التصادم مع السلة
+                if (
+                    stars[i].y + stars[i].height > basket.y &&
+                    stars[i].x + stars[i].width > basket.x &&
+                    stars[i].x < basket.x + basket.width
+                ) {
+                    stars.splice(i, 1);
+                    score += 10;
+                    scoreElement.textContent = 'النقاط: ' + score;
+                    continue;
+                }
+                
+                // إزالة النجوم التي سقطت خارج الشاشة
+                if (stars[i].y > canvas.height) {
+                    stars.splice(i, 1);
+                }
+            }
+        }
+        
+        // رسم العناصر
+        function draw() {
+            // مسح الشاشة
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // رسم السلة
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
+            
+            // رسم النجوم
+            ctx.fillStyle = 'gold';
+            for (const star of stars) {
+                ctx.beginPath();
+                ctx.moveTo(star.x + star.width/2, star.y);
+                ctx.lineTo(star.x + star.width, star.y + star.height/3);
+                ctx.lineTo(star.x + star.width*0.75, star.y + star.height);
+                ctx.lineTo(star.x + star.width/4, star.y + star.height);
+                ctx.lineTo(star.x, star.y + star.height/3);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        
+        // حلقة اللعبة الرئيسية
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            createStar();
+            updateStars();
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
